@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Product — ShopHub</title>
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#7c3aed" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="ShopHub" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
+    <link rel="stylesheet" href="styles.css" />
+    <script>(function(){const t=localStorage.getItem('shophub-theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark')})();</script>
+</head>
+<body data-page="product">
+    <header class="header">
+        <div class="container header-inner">
+            <div class="header-left">
+                <a href="index.html" class="brand">ShopHub</a>
+                <nav class="nav"><a href="index.html">Shop</a><a href="checkout.html">Checkout</a></nav>
+            </div>
+            <div class="header-actions">
+                <button class="icon-btn" id="themeToggle" aria-label="Toggle theme">
+                    <svg id="iconSun" style="display:none" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+                    <svg id="iconMoon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+                <button class="icon-btn" id="wishlistBtn" aria-label="Wishlist">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                    <span class="badge dest" id="wishCount" style="display:none">0</span>
+                </button>
+                <button class="icon-btn" id="cartBtn" aria-label="Cart">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                    <span class="badge" id="cartCount" style="display:none">0</span>
+                </button>
+                <button class="icon-btn hamburger" id="hamburgerBtn" aria-label="Menu">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                </button>
+            </div>
+        </div>
+    </header>
+    <div class="mobile-menu" id="mobileMenu"><div class="mobile-menu-inner"><a href="index.html">Shop</a><a href="checkout.html">Checkout</a></div></div>
+    <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
+
+    <main class="container padded" id="productDetail">
+        <a href="index.html" class="back-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg> Back to Shop</a>
+        <div class="product-detail-skeleton" id="productSkeleton"><div class="skeleton-img"></div><div class="skeleton-info"><div class="skeleton-line short"></div><div class="skeleton-line medium"></div><div class="skeleton-line long"></div><div class="skeleton-line medium"></div></div></div>
+        <div id="productDetailContent" style="display:none;"></div>
+        <div id="productNotFound" style="display:none;" class="empty-state">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+            <div class="t">Product not found</div><div class="s">This product doesn't exist or has been removed.</div>
+            <a href="index.html" class="btn btn-primary">Browse products</a>
+        </div>
+    </main>
+
+    <section class="container padded" id="relatedSection" style="display:none;">
+        <div class="section-head"><div><span class="label">You might also like</span><h2>Related Products</h2></div></div>
+        <div class="carousel-wrap">
+            <button class="carousel-btn prev" onclick="scrollCarousel('relatedCarousel',-1)" aria-label="Previous"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+            <div class="carousel" id="relatedCarousel"></div>
+            <button class="carousel-btn next" onclick="scrollCarousel('relatedCarousel',1)" aria-label="Next"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>
+        </div>
+    </section>
+
+    <footer><div class="container">
+        <div class="foot-grid">
+            <div><div class="brand" style="font-size:1.25rem;">ShopHub</div><p style="font-size:.875rem;color:var(--muted-fg);margin-top:.75rem;">Your destination for premium products</p></div>
+            <div><h4>Shop</h4><ul><li><a href="index.html">All Products</a></li><li><a href="checkout.html">Checkout</a></li></ul></div>
+            <div><h4>Help</h4><ul><li><a href="#">Contact Us</a></li><li><a href="#">Shipping</a></li><li><a href="#">Returns</a></li></ul></div>
+            <div><h4>Follow Us</h4><ul><li><a href="#">Instagram</a></li><li><a href="#">Twitter</a></li></ul></div>
+        </div>
+        <div class="copyright">© <span id="yr"></span> ShopHub. All rights reserved.</div>
+    </div></footer>
+
+    <div class="overlay" id="overlay"></div>
+    <aside class="drawer" id="drawer" aria-label="Shopping cart">
+        <div class="drawer-head"><h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> Shopping Cart (<span id="cartItemCount">0</span>)</h3><button class="x-btn" id="closeCart" aria-label="Close"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+        <div class="drawer-body" id="cartBody"></div>
+        <div class="drawer-foot" id="cartFoot" style="display:none;"><div class="total-row"><span>Total</span><span class="v" id="cartTotal">$0.00</span></div><a href="checkout.html" class="btn btn-primary btn-lg" style="width:100%;text-align:center;">Checkout</a></div>
+    </aside>
+    <div class="toast" id="toast"></div>
+
+    <script src="app.js"></script>
+    <script src="chat.js"></script>
+    <script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
+</body>
+</html>
