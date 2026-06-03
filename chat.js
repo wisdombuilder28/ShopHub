@@ -1,10 +1,8 @@
 /* ============================================
    ShopHub — ShopBot AI Assistant
-   Secure: No innerHTML with user data.
-   - User input  → textContent only
-   - AI responses → HTML-escaped first, then
-     safe markdown applied (no raw injection)
-   - DOM elements built via createElement
+   Calls /api/chat (Vercel Node.js proxy)
+   Secure: textContent for user input,
+   escaped markdown for AI responses.
    ============================================ */
 
 (function () {
@@ -29,11 +27,6 @@
     /* ================================================
        SECURITY UTILS
     ================================================ */
-
-    /**
-     * Escape all HTML entities — call this before
-     * any dynamic value touches the DOM.
-     */
     function escapeHTML(str) {
         return String(str)
             .replace(/&/g,  '&amp;')
@@ -43,12 +36,8 @@
             .replace(/'/g,  '&#39;');
     }
 
-    /**
-     * Safe markdown renderer for AI responses ONLY.
-     * Step 1 — escape every HTML entity (kills any injection).
-     * Step 2 — apply ONLY our own known-safe tags (strong/em/code/br).
-     * User messages never go through this — they use textContent.
-     */
+    /* Safe markdown — escape ALL HTML first, then apply only
+       our own known-safe tags. AI responses only, never user input. */
     function renderMarkdown(text) {
         return escapeHTML(text)
             .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
@@ -61,7 +50,6 @@
        BUILD WIDGET — createElement only, no innerHTML
     ================================================ */
     function build() {
-        /* ---- FAB button ---- */
         const fab = document.createElement('button');
         fab.id = 'shopbot-fab';
         fab.setAttribute('aria-label', 'Open ShopBot');
@@ -76,24 +64,20 @@
         pulse.className = 'shopbot-pulse-ring';
         fab.append(iconChat, iconClose, pulse);
 
-        /* ---- Panel ---- */
         const panel = document.createElement('div');
         panel.id = 'shopbot-panel';
         panel.setAttribute('role', 'dialog');
         panel.setAttribute('aria-label', 'ShopBot');
         panel.setAttribute('aria-hidden', 'true');
 
-        /* ---- Header ---- */
+        /* Header */
         const header = document.createElement('div');
         header.id = 'shopbot-header';
-
         const hdrLeft = document.createElement('div');
         hdrLeft.className = 'shopbot-hdr-left';
-
         const avatar = document.createElement('div');
         avatar.className = 'shopbot-avatar';
         avatar.appendChild(createSVG('M3 11h18a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z M7 11V7a5 5 0 0 1 10 0v4', 18));
-
         const hdrText = document.createElement('div');
         const hdrName = document.createElement('div');
         hdrName.className = 'shopbot-hdr-name';
@@ -105,31 +89,26 @@
         hdrSub.append(dot, document.createTextNode('AI Shopping Assistant'));
         hdrText.append(hdrName, hdrSub);
         hdrLeft.append(avatar, hdrText);
-
         const clearBtn = document.createElement('button');
         clearBtn.id = 'sb-clear';
         clearBtn.title = 'New chat';
         clearBtn.setAttribute('aria-label', 'Start new chat');
         clearBtn.appendChild(createSVG('M1 4v6h6 M3.51 15a9 9 0 1 0 .49-3.59', 15));
-
         header.append(hdrLeft, clearBtn);
 
-        /* ---- Messages ---- */
+        /* Messages */
         const messages = document.createElement('div');
         messages.id = 'sb-messages';
         messages.setAttribute('role', 'log');
         messages.setAttribute('aria-live', 'polite');
 
-        /* ---- Footer ---- */
+        /* Footer */
         const footer = document.createElement('div');
         footer.id = 'sb-footer';
-
         const chips = document.createElement('div');
         chips.id = 'sb-chips';
-
         const inputRow = document.createElement('div');
         inputRow.id = 'sb-input-row';
-
         const input = document.createElement('input');
         input.id = 'sb-input';
         input.type = 'text';
@@ -138,24 +117,21 @@
         input.setAttribute('spellcheck', 'false');
         input.maxLength = 500;
         input.setAttribute('aria-label', 'Message ShopBot');
-
         const sendBtn = document.createElement('button');
         sendBtn.id = 'sb-send';
         sendBtn.setAttribute('aria-label', 'Send');
         sendBtn.appendChild(createSVG('M22 2L11 13 M22 2L15 22l-4-9-9-4 22-7', 16));
-
         inputRow.append(input, sendBtn);
         footer.append(chips, inputRow);
+
         panel.append(header, messages, footer);
 
-        /* ---- Root ---- */
         const root = document.createElement('div');
         root.id = 'shopbot-root';
         root.append(fab, panel);
         document.body.appendChild(root);
     }
 
-    /** Helper: create a simple SVG icon */
     function createSVG(pathD, size = 22) {
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         svg.setAttribute('width', size);
@@ -196,20 +172,17 @@
     }
 
     /* ================================================
-       QUICK CHIPS — built with createElement (no innerHTML)
+       QUICK CHIPS — createElement, no innerHTML
     ================================================ */
     function renderChips() {
         const container = document.getElementById('sb-chips');
         if (!container) return;
-
-        // Clear existing chips safely
         while (container.firstChild) container.removeChild(container.firstChild);
         if (history.length > 0) return;
-
         QUICK_CHIPS.slice(0, 4).forEach(text => {
             const btn = document.createElement('button');
             btn.className = 'shopbot-chip';
-            btn.textContent = text; // textContent — no injection risk
+            btn.textContent = text;
             btn.addEventListener('click', () => send(text));
             container.appendChild(btn);
         });
@@ -218,24 +191,21 @@
     /* ================================================
        MESSAGES — secure rendering
     ================================================ */
-    function addMessage(role, text, isPlaceholder) {
+    function addMessage(role, text) {
         const log = document.getElementById('sb-messages');
-        if (!log) return null;
+        if (!log) return;
 
-        const wrap   = document.createElement('div');
+        const wrap = document.createElement('div');
         wrap.className = `shopbot-msg shopbot-msg-${role}`;
-        if (isPlaceholder) wrap.id = 'sb-stream';
 
         const bubble = document.createElement('div');
         bubble.className = 'shopbot-bubble';
 
         if (role === 'user') {
-            // ✅ SAFE: User input always goes through textContent.
-            // No HTML parsing, zero XSS risk.
+            // ✅ User input: textContent only — zero XSS risk
             bubble.textContent = text;
         } else {
-            // ✅ SAFE: AI response — escape ALL HTML first, then
-            // apply only our own controlled markdown tags.
+            // ✅ AI response: escape ALL HTML first, then safe markdown only
             bubble.innerHTML = renderMarkdown(text);
         }
 
@@ -252,39 +222,17 @@
 
         log.appendChild(wrap);
         log.scrollTop = log.scrollHeight;
-        return wrap;
-    }
-
-    function updateStream(text) {
-        const el  = document.getElementById('sb-stream');
-        const bub = el && el.querySelector('.shopbot-bubble');
-        if (bub) {
-            // ✅ SAFE: AI content, escaped before markdown applied
-            bub.innerHTML = renderMarkdown(text);
-        }
-        const log = document.getElementById('sb-messages');
-        if (log) log.scrollTop = log.scrollHeight;
-    }
-
-    function finalizeStream() {
-        document.getElementById('sb-stream')?.removeAttribute('id');
     }
 
     function showDots() {
         const log = document.getElementById('sb-messages');
         if (!log || document.getElementById('sb-dots')) return;
-
-        const wrap   = document.createElement('div');
-        wrap.id        = 'sb-dots';
+        const wrap = document.createElement('div');
+        wrap.id = 'sb-dots';
         wrap.className = 'shopbot-msg shopbot-msg-assistant';
-
         const bubble = document.createElement('div');
         bubble.className = 'shopbot-bubble shopbot-typing-bubble';
-
-        for (let i = 0; i < 3; i++) {
-            bubble.appendChild(document.createElement('span'));
-        }
-
+        for (let i = 0; i < 3; i++) bubble.appendChild(document.createElement('span'));
         wrap.appendChild(bubble);
         log.appendChild(wrap);
         log.scrollTop = log.scrollHeight;
@@ -295,7 +243,7 @@
     }
 
     /* ================================================
-       SEND MESSAGE → /api/chat (Vercel proxy)
+       SEND MESSAGE → /api/chat
     ================================================ */
     async function send(text) {
         text = (text || '').trim();
@@ -336,38 +284,20 @@
                 const errMsg = res.status === 429
                     ? '⚠️ Too many messages — wait a moment and try again.'
                     : res.status === 503
-                    ? '⚠️ ShopBot is setting up — check back shortly.'
+                    ? '⚠️ ShopBot is not configured yet.'
                     : '⚠️ Something went wrong. Please try again.';
                 addMessage('assistant', errMsg);
                 history.pop();
             } else {
-                const reader  = res.body.getReader();
-                const decoder = new TextDecoder();
-                let fullText  = '';
-                let msgEl     = null;
-
-                outer: while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-
-                    const lines = decoder.decode(value, { stream: true }).split('\n');
-                    for (const line of lines) {
-                        if (!line.startsWith('data: ')) continue;
-                        const raw = line.slice(6).trim();
-                        if (raw === '[DONE]') break outer;
-                        try {
-                            const delta = JSON.parse(raw)?.choices?.[0]?.delta?.content;
-                            if (delta) {
-                                fullText += delta;
-                                if (!msgEl) msgEl = addMessage('assistant', fullText, true);
-                                else        updateStream(fullText);
-                            }
-                        } catch { /* skip malformed SSE chunks */ }
-                    }
+                const data  = await res.json();
+                const reply = data.reply;
+                if (reply) {
+                    addMessage('assistant', reply);
+                    history.push({ role: 'assistant', content: reply });
+                } else {
+                    addMessage('assistant', '⚠️ No response received. Please try again.');
+                    history.pop();
                 }
-
-                finalizeStream();
-                if (fullText) history.push({ role: 'assistant', content: fullText });
             }
 
         } catch {
@@ -449,9 +379,7 @@
                 history = [];
                 greeted = false;
                 const log = document.getElementById('sb-messages');
-                if (log) {
-                    while (log.firstChild) log.removeChild(log.firstChild);
-                }
+                if (log) while (log.firstChild) log.removeChild(log.firstChild);
                 renderChips();
                 setTimeout(greet, 100);
             });

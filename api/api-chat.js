@@ -1,12 +1,7 @@
 /* ================================================
-   ShopHub — Secure Groq API Proxy
-   Vercel Edge Function
-
-   The GROQ_API_KEY lives only here (Vercel env var).
-   The frontend never sees it. Users just chat.
+   ShopHub — Groq API Proxy
+   Standard Node.js Vercel Serverless Function
    ================================================ */
-
-export const config = { runtime: 'edge' };
 
 const SYSTEM_PROMPT = `You are ShopBot, the friendly AI shopping assistant for ShopHub — a premium online store.
 
@@ -18,55 +13,37 @@ STORE POLICIES:
 - Secure SSL checkout
 
 RESPONSE GUIDELINES:
-- Be warm, helpful, and concise — 1-3 sentences unless more detail is needed
-- Always mention specific product names and prices when making recommendations
-- Highlight Sale badges, star ratings, and low/out-of-stock warnings when relevant
-- If a product is out of stock, suggest a similar in-stock alternative
-- Never invent products or policies not listed in the catalog below`;
+- Be warm, helpful and concise — 1-3 sentences unless more detail is needed
+- Always mention specific product names and prices when recommending
+- Highlight Sale badges, ratings and stock warnings when relevant
+- If a product is out of stock suggest a similar in-stock alternative
+- Never invent products or policies not listed in the catalog`;
 
-export default async function handler(req) {
-    /* ---- CORS preflight ---- */
-    if (req.method === 'OPTIONS') {
-        return new Response(null, {
-            status: 204,
-            headers: {
-                'Access-Control-Allow-Origin':  '*',
-                'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type',
-            },
-        });
-    }
+export default async function handler(req, res) {
+    /* ---- CORS headers ---- */
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    if (req.method !== 'POST') {
-        return new Response('Method not allowed', { status: 405 });
-    }
+    if (req.method === 'OPTIONS') return res.status(204).end();
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-    /* ---- Check API key is configured ---- */
+    /* ---- Check API key ---- */
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
-        console.error('[ShopBot] GROQ_API_KEY environment variable is not set');
-        return new Response(
-            JSON.stringify({ error: 'ShopBot is not configured yet.' }),
-            { status: 503, headers: { 'Content-Type': 'application/json' } }
-        );
+        console.error('[ShopBot] GROQ_API_KEY is not set');
+        return res.status(503).json({ error: 'ShopBot is not configured yet.' });
     }
 
-    /* ---- Parse request body ---- */
-    let body;
-    try {
-        body = await req.json();
-    } catch {
-        return new Response('Invalid JSON', { status: 400 });
-    }
-
-    const { messages, context } = body;
+    /* ---- Parse body ---- */
+    const { messages, context } = req.body || {};
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
-        return new Response('Invalid messages', { status: 400 });
+        return res.status(400).json({ error: 'Invalid messages' });
     }
 
     /* ---- Build system prompt with live store context ---- */
     const pageNames = {
-        home:     'Shop (product listing)',
+        home:     'Shop / product listing',
         product:  'Product detail page',
         checkout: 'Checkout page',
     };
@@ -79,7 +56,7 @@ CUSTOMER CART: ${context?.cart || 'Empty'}
 PRODUCT CATALOG (${(context?.products || []).length} products):
 ${JSON.stringify(context?.products || [], null, 2)}`;
 
-    /* ---- Call Groq API with streaming ---- */
+    /* ---- Call Groq ---- */
     try {
         const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
@@ -91,40 +68,32 @@ ${JSON.stringify(context?.products || [], null, 2)}`;
                 model:       'llama-3.3-70b-versatile',
                 max_tokens:  600,
                 temperature: 0.7,
-                stream:      true,
+                stream:      false,
                 messages: [
                     { role: 'system', content: fullSystemPrompt },
-                    ...messages.slice(-20), // last 10 exchanges max
+                    ...messages.slice(-20),
                 ],
             }),
         });
 
         if (!groqRes.ok) {
-            const errText = await groqRes.text();
-            console.error('[ShopBot] Groq error:', groqRes.status, errText);
-
+            const errData = await groqRes.json().catch(() => ({}));
+            console.error('[ShopBot] Groq error:', groqRes.status, errData);
             const status = groqRes.status === 429 ? 429 : 502;
-            return new Response(
-                JSON.stringify({ error: `API error ${groqRes.status}` }),
-                { status, headers: { 'Content-Type': 'application/json' } }
-            );
+            return res.status(status).json({ error: errData?.error?.message || 'Groq API error' });
         }
 
-        /* ---- Stream Groq's SSE response directly to browser ---- */
-        return new Response(groqRes.body, {
-            status: 200,
-            headers: {
-                'Content-Type':      'text/event-stream',
-                'Cache-Control':     'no-cache, no-transform',
-                'X-Accel-Buffering': 'no',
-            },
-        });
+        const data  = await groqRes.json();
+        const reply = data.choices?.[0]?.message?.content;
+
+        if (!reply) {
+            return res.status(502).json({ error: 'Empty response from Groq' });
+        }
+
+        return res.status(200).json({ reply });
 
     } catch (err) {
         console.error('[ShopBot] Handler error:', err);
-        return new Response(
-            JSON.stringify({ error: 'Internal server error' }),
-            { status: 500, headers: { 'Content-Type': 'application/json' } }
-        );
+        return res.status(500).json({ error: 'Internal server error' });
     }
 }
